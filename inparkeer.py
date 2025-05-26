@@ -15,11 +15,21 @@ def lighten_color(hex_color, factor=0.3):
     b = min(int(b + (255 - b) * factor), 255)
     return rgb_to_hex(r, g, b)
 
-# Example button functions
-def power_button():
-    os.system("sudo shutdown now")
+# button function
 
-def home_button():
+def screen_off():
+    os.system("vcgencmd display_power 0")
+    print("screen off")
+
+def screen_on():
+    os.system("vcgencmd display_power 1")
+    print("screen on")
+
+# button assign
+def power_button():
+    screen_off()
+
+def setting_button():
     print("Home button pressed.")
 
 def surveillance_button():
@@ -62,10 +72,10 @@ root.configure(bg="black")
 clock_label = tk.Label(root, fg="white", bg="black", font=("Arial", 20, "bold"))
 clock_label.place(relx=1.0, y=10, anchor="ne")
 
-# Buttons: (label, color, command)
+# Buttons: (label, color, assignment)
 buttons_data = [
     ("Aan/uit",         rgb_to_hex(135, 255, 94),   power_button),
-    ("Home",            rgb_to_hex(43, 146, 255),   home_button),
+    ("Settings",        rgb_to_hex(43, 146, 255),   setting_button),
     ("Surveillance",    rgb_to_hex(245, 64, 64),    surveillance_button),
     ("Licht",           rgb_to_hex(255, 146, 43),   light_button),
     ("Distance",        rgb_to_hex(255, 239, 97),   distance_button),
@@ -84,6 +94,8 @@ buttons_positions_sizes = [
 
 for (label, color, command), (x, y, w, h) in zip(buttons_data, buttons_positions_sizes):
     create_button(root, label, x, y, w, h, color, command)
+
+root.bind("<Button-1>", lambda event: screen_on())    
 
 update_clock()
 root.mainloop()
