@@ -97,35 +97,40 @@ class MultiPageApp(tk.Tk):
         self.clock_label.config(text=now)
         self.after(1000, self.update_clock)
 
+    def start_sensors(self):
+        import sensor
+    
+
 class HomePage(tk.Frame):
     def __init__(self, parent, controller):
         super().__init__(parent, bg="black")
         self.controller = controller
 
         self.buttons = []
-        self.icons = []  # store PhotoImage references
+        self.icons = []
 
         buttons_data = [
-            ("screen_off",       "icons/screen_off.png",      rgb_to_hex(135, 255, 94),   screen_off),
-            ("settings",         "icons/settings.png",        rgb_to_hex(43, 146, 255),   lambda: controller.show_frame("SettingsPage")),
-            ("surveillance",     "icons/surveillance.png",    rgb_to_hex(245, 64, 64),    lambda: controller.show_frame("SurveillancePage")),
-            ("light",            "icons/light.png",           rgb_to_hex(255, 146, 43),   light_button),
-            ("distance",         "icons/distance.png",        rgb_to_hex(255, 239, 97),   lambda: controller.show_frame("DistancePage")),
-            ("sensors",          "icons/sensors.png",         rgb_to_hex(255, 77, 201),   lambda: controller.show_frame("SensorsPage")),
+            ("screen_off",   "icons/screen_off.png",    rgb_to_hex(135, 255, 94),   screen_off),
+            ("settings",     "icons/settings.png",      rgb_to_hex(43, 146, 255),  lambda: controller.show_frame("SettingsPage")),
+            ("surveillance", "icons/surveillance.png",  rgb_to_hex(245, 64, 64),   lambda: controller.show_frame("SurveillancePage")),
+            ("light",        "icons/light.png",         rgb_to_hex(255, 146, 43),  light_button),
+            ("distance",     "icons/distance.png",      rgb_to_hex(255, 239, 97),  lambda: controller.show_frame("DistancePage")),
+            ("sensors",      "icons/sensors.png",       rgb_to_hex(255, 77, 201),  lambda: controller.show_frame("SensorsPage")),
         ]
 
+        # Updated positions and sizes for 1024x600
         buttons_positions_sizes = [
-            (350,    250,     360,    260),
-            (750,    250,     360,    260),
-            (1150,   250,     360,    260),
-            (350,    540,    360,    260),
-            (750,    540,    360,    260),
-            (1150,   540,    360,    260),
+            (30,  80, 308, 210),
+            (358, 80, 308, 210),
+            (686, 80, 308, 210),
+            (30,  320, 308, 210),
+            (358, 320, 308, 210),
+            (686, 320, 308, 210),
         ]
 
         for (key, icon_path, color, command), (x, y, w, h) in zip(buttons_data, buttons_positions_sizes):
             icon = tk.PhotoImage(file=icon_path)
-            self.icons.append(icon)  # keep reference
+            self.icons.append(icon)
             btn = tk.Button(self,
                             text=translations[controller.language.get()][key],
                             image=icon,
@@ -138,7 +143,7 @@ class HomePage(tk.Frame):
                             cursor="hand2",
                             wraplength=w-20,
                             justify="center",
-                            pady=10)  # <-- added padding here
+                            pady=10)
             btn.place(x=x, y=y, width=w, height=h)
             self.buttons.append((btn, key, icon))
 
@@ -153,10 +158,10 @@ class SettingsPage(tk.Frame):
         self.controller = controller
 
         self.label = tk.Label(self, fg="white", bg="black", font=("Arial", 24))
-        self.label.place(x=50, y=150)
+        self.label.place(x=50, y=50)
 
         self.bright_label = tk.Label(self, fg="white", bg="black", font=("Arial", 16))
-        self.bright_label.place(x=50, y=220)
+        self.bright_label.place(x=50, y=130)
 
         self.brightness_slider = tk.Scale(self,
                                      from_=0, to=100,
@@ -167,21 +172,19 @@ class SettingsPage(tk.Frame):
                                      troughcolor="gray30",
                                      highlightthickness=0,
                                      length=600)
-        self.brightness_slider.place(x=50, y=260)
-
+        self.brightness_slider.place(x=50, y=170)
         self.brightness_slider.config(command=self.brightness_changed)
 
         self.lang_label = tk.Label(self, fg="white", bg="black", font=("Arial", 16))
-        self.lang_label.place(x=50, y=340)
+        self.lang_label.place(x=50, y=250)
 
         languages = list(translations.keys())
         self.lang_menu = tk.OptionMenu(self, controller.language, *languages, command=self.language_changed)
         self.lang_menu.config(bg="black", fg="white", highlightthickness=0, font=("Arial", 14))
         self.lang_menu["menu"].config(bg="black", fg="white")
-        self.lang_menu.place(x=50, y=380)
+        self.lang_menu.place(x=50, y=290)
 
-        self.back_button = create_button(self, "", 50, 50, 180, 80, rgb_to_hex(135, 255, 94), lambda: controller.show_frame("HomePage"))
-
+        self.back_button = create_button(self, "", 30, 500, 160, 60, rgb_to_hex(135, 255, 94), lambda: controller.show_frame("HomePage"))
         self.update_language()
 
     def update_language(self):
@@ -208,7 +211,7 @@ class SurveillancePage(tk.Frame):
         self.label = tk.Label(self, fg="white", bg="black", font=("Arial", 24))
         self.label.place(x=50, y=50)
 
-        self.back_button = create_button(self, "", 50, 350, 180, 80, rgb_to_hex(135, 255, 94), lambda: controller.show_frame("HomePage"))
+        self.back_button = create_button(self, "", 30, 500, 160, 60, rgb_to_hex(135, 255, 94), lambda: controller.show_frame("HomePage"))
         self.update_language()
 
     def update_language(self):
@@ -224,7 +227,7 @@ class DistancePage(tk.Frame):
         self.label = tk.Label(self, fg="white", bg="black", font=("Arial", 24))
         self.label.place(x=50, y=50)
 
-        self.back_button = create_button(self, "", 50, 350, 180, 80, rgb_to_hex(135, 255, 94), lambda: controller.show_frame("HomePage"))
+        self.back_button = create_button(self, "", 30, 500, 160, 60, rgb_to_hex(135, 255, 94), lambda: controller.show_frame("HomePage"))
         self.update_language()
 
     def update_language(self):
@@ -240,7 +243,7 @@ class SensorsPage(tk.Frame):
         self.label = tk.Label(self, fg="white", bg="black", font=("Arial", 24))
         self.label.place(x=50, y=50)
 
-        self.back_button = create_button(self, "", 50, 350, 180, 80, rgb_to_hex(135, 255, 94), lambda: controller.show_frame("HomePage"))
+        self.back_button = create_button(self, "", 30, 500, 160, 60, rgb_to_hex(135, 255, 94), lambda: controller.show_frame("HomePage"))
         self.update_language()
 
     def update_language(self):
@@ -250,4 +253,6 @@ class SensorsPage(tk.Frame):
 
 if __name__ == "__main__":
     app = MultiPageApp()
+    app.after(1000, app.start_sensors)
     app.mainloop()
+    
