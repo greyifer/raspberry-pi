@@ -1,7 +1,9 @@
 import os
 import tkinter as tk
 from datetime import datetime
-from translations import translations  # Assume this contains the full translations dict
+import threading
+import time
+from translations import translations
 
 def rgb_to_hex(r, g, b):
     return f"#{r:02x}{g:02x}{b:02x}"
@@ -57,7 +59,7 @@ class MultiPageApp(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("Multi-Page App")
-        self.geometry("1024x600")
+        self.attributes("-fullscreen", True)
 
         self.dark_mode = tk.BooleanVar(value=True)
         self.language = tk.StringVar(value="English")
@@ -84,7 +86,29 @@ class MultiPageApp(tk.Tk):
 
         self.show_frame("HomePage")
 
-        self.bind("<Button-1>", lambda e: screen_on())
+        # Start the distance import in a separate thread after GUI loads
+        threading.Thread(target=self.import_distances, daemon=True).start()
+        # Start a thread to check distances
+        threading.Thread(target=self.check_distances, daemon=True).start()
+
+    def import_distances(self):
+        # Delay to simulate load time or wait for app fully ready
+        time.sleep(5)
+        # Import here so it doesn't block initial GUI load
+        from sensor import distances  # Import the distances dict dynamically
+        print("Distances imported:", self.distances)
+
+    def check_distances(self):
+        while True:
+            # Check if any distance is 15 cm or less
+            for key, value in self.distances.items():
+                if value <= 15:
+                    self.play_alert_sound()
+            time.sleep(1)  # Check every second
+
+    def play_alert_sound(self):
+        # Play a sound alert (you can use any sound file you have)
+        os.system("aplay /path/to/alert_sound.wav &")  # Replace with your sound file path
 
     def get_bg_color(self):
         return "black" if self.dark_mode.get() else "white"
@@ -113,6 +137,7 @@ class MultiPageApp(tk.Tk):
 
     def update_button_layout(self):
         self.frames["HomePage"].update_button_positions(self.preset.get())
+
 
 class HomePage(tk.Frame):
     ORIGINAL_COLORS = {
@@ -254,7 +279,8 @@ class SettingsPage(tk.Frame):
                             font=("Arial", 14, "bold"),
                             cursor="hand2",
                             command=lambda k=lang_key: self.set_language(k))
-            btn.place(x=start_x + i * (button_width + spacing_x), y=start_y, width=button_width, height=button_height)
+            btn.place(x=start_x + i * (button_width + spacing_x), y=start_y,
+                      width=button_width, height=button_height)
             self.language_buttons.append(btn)
 
     def set_language(self, lang_key):
@@ -485,14 +511,26 @@ class DistancePage(tk.Frame):
         super().__init__(parent)
         self.controller = controller
         self.configure(bg=controller.get_bg_color())
-        label = tk.Label(self, text="", font=("Arial", 24))
-        label.place(x=50, y=50)
-        self.label = label
+        
+        self.label = tk.Label(self, text="", font=("Arial", 24))
+        self.label.place(x=50, y=50)
+        
+        # Create labels for each sensor distance
+        self.distance_labels = {}
+        for i in range(1, 6):
+            sensor_label = tk.Label(self, text="", font=("Arial", 20))
+            sensor_label.place(x=50, y=100 + (i * 30))  # Adjust y position for each sensor
+            self.distance_labels[f"sensor{i}"] = sensor_label
+        
         back_button = create_button(self, "", 30, 500, 160, 60, rgb_to_hex(135, 255, 94),
                                     lambda: controller.show_frame("HomePage"))
         self.back_button = back_button
+        
         self.update_language()
         self.update_colors(controller.get_bg_color(), controller.get_fg_color())
+        
+        # Start a thread to check distances
+        threading.Thread(target=self.check_distances, daemon=True).start()
 
     def update_language(self):
         lang = self.controller.language.get()
@@ -503,6 +541,25 @@ class DistancePage(tk.Frame):
         self.configure(bg=bg)
         self.label.config(bg=bg, fg=fg)
         self.back_button.config(bg=lighten_color(rgb_to_hex(135, 255, 94), 0.3), fg="black")
+
+    def check_distances(self):
+        while True:
+            # Access the distances from the imported sensor module
+            distances = self.controller.distances  # Assuming distances is stored in the controller
+            for i in range(1, 6):
+                distance_value = distances[f"sensor{i}"]
+                self.distance_labels[f"sensor{i}"].config(text=f"Sensor {i}: {distance_value} cm")
+                
+                # Check if the distance is 15 cm or less
+                if distance_value <= 15:
+                    self.play_alert_sound()
+            
+            time.sleep(1)  # Check every second
+
+    def play_alert_sound(self):
+        # Play a sound alert (you can use any sound file you have)
+        os.system("mpg123 sound.mp3 &")  # Replace with your sound file path
+
 
 class SensorsPage(tk.Frame):
     def __init__(self, parent, controller):
