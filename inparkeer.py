@@ -59,7 +59,7 @@ class MultiPageApp(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("Multi-Page App")
-        self.attributes("-fullscreen", True)
+        self.geometry("1024x786")
 
         self.dark_mode = tk.BooleanVar(value=True)
         self.language = tk.StringVar(value="English")
@@ -164,20 +164,20 @@ class HomePage(tk.Frame):
             ("sensors",      "icons/sensors.png",       self.ORIGINAL_COLORS["sensors"],  lambda: controller.show_frame("SensorsPage")),
         ]
         self.buttons_positions_sizes_preset1 = [
-            (30,  80, 308, 210),
-            (358, 80, 308, 210),
-            (686, 80, 308, 210),
-            (30,  320, 308, 210),
-            (358, 320, 308, 210),
-            (686, 320, 308, 210),
+            (30,  140, 308, 270),
+            (358, 140, 308, 270),
+            (686, 140, 308, 270),
+            (30,  440, 308, 270),
+            (358, 440, 308, 270),
+            (686, 440, 308, 270),
         ]
         self.buttons_positions_sizes_preset2 = [
-            (30,  320, 308, 210),
-            (358, 320, 308, 210),
-            (686, 320, 308, 210),
-            (30,  80, 308, 210),
-            (358, 80, 308, 210),
-            (686, 80, 308, 210),
+            (30,  440, 308, 270),
+            (358, 440, 308, 270),
+            (686, 440, 308, 270),
+            (30,  140, 308, 270),
+            (358, 140, 308, 270),
+            (686, 140, 308, 270),
         ]
         for key, icon_path, color, cmd in self.buttons_data:
             icon = tk.PhotoImage(file=icon_path)
@@ -560,32 +560,149 @@ class DistancePage(tk.Frame):
         # Play a sound alert (you can use any sound file you have)
         os.system("mpg123 sound.mp3 &")  # Replace with your sound file path
 
+        def rgb_to_hex(r, g, b):
+            return f"#{r:02x}{g:02x}{b:02x}"
+        r, g, b = hex_to_rgb(hex_color)
+        r = min(int(r + (255 - r) * factor), 255)
+        g = min(int(g + (255 - g) * factor), 255)
+        b = min(int(b + (255 - b) * factor), 255)
+        return rgb_to_hex(r, g, b)
+    def check_distances_loop(self):
+        # Map each box index 0..4 to sensor keys sensor1..sensor5
+        box_sensor_map = {
+            0: "sensor1",  # left top box
+            1: "sensor2",  # left bottom box
+            2: "sensor3",  # right top box
+            3: "sensor4",  # right bottom box
+            4: "sensor5"   # center back box
+        }
+        while True:
+            distances = getattr(self.controller, "distances", None)
+            if distances is None:
+                time.sleep(1)
+                continue
+            # Update sensor labels with current distances
+            for i in range(1, 6):
+                sensor_key = f"sensor{i}"
+                dist_value = distances.get(sensor_key, None)
+                if dist_value is not None:
+                    self.distance_labels[sensor_key].config(text=f"Sensor {i}: {dist_value} cm")
+            # Update box colors according to distance thresholds
+            for idx, sensor_key in box_sensor_map.items():
+                dist_value = distances.get(sensor_key, 999)
+                if dist_value <= 15:
+                    self.canvas.itemconfig(self.boxes[idx], fill="red")
+                else:
+                    self.canvas.itemconfig(self.boxes[idx], fill="white")
+            time.sleep(1)
 
 class SensorsPage(tk.Frame):
     def __init__(self, parent, controller):
         super().__init__(parent)
         self.controller = controller
-        self.configure(bg=controller.get_bg_color())
-        label = tk.Label(self, text="", font=("Arial", 24))
-        label.place(x=50, y=50)
-        self.label = label
-        back_button = create_button(self, "", 30, 500, 160, 60, rgb_to_hex(135, 255, 94),
-                                    lambda: controller.show_frame("HomePage"))
-        self.back_button = back_button
+        # Background color - dark neutral
+        self.configure(bg="#121212")
+
+        self.canvas_width = 800
+        self.canvas_height = 400
+        self.canvas = tk.Canvas(self, bg="#121212", highlightthickness=0)
+        self.canvas.place(relx=0.03, rely=0.05, anchor="nw", width=self.canvas_width, height=self.canvas_height)
+
+        # Ship polygon: rectangle + elongated bow triangle at right side
+        rect_x0 = 50   # Moved closer to the left
+        rect_y0 = 25   # Moved closer to the top
+        rect_x1 = 500  # rectangle width
+        rect_y1 = 175
+
+        ship_points = [
+            rect_x0, rect_y0,                     # rear top-left corner of rectangle
+            rect_x1, rect_y0,                     # front top-right corner (start bow)
+            rect_x1 + 160, (rect_y0 + rect_y1) // 2,  # tip of bow triangle
+            rect_x1, rect_y1,                     # front bottom-right corner of rectangle
+            rect_x0, rect_y1                      # rear bottom-left corner of rectangle
+        ]
+        self.canvas.create_polygon(ship_points, fill="navy", outline="white", width=4)
+
+        box_w, box_h = 30, 30
+        spacing_back = 15  # distance from rear edge for boxes
+        spacing_between = 30  # spacing between boxes horizontally
+
+        # Rear side is left side (x = rect_x0)
+        # Boxes on top side near rear
+        top_y = rect_y0 - box_h + 10  # above rectangle top edge
+        top_x1 = rect_x0 + spacing_back + 150      # left top box 1 (closest to rear)
+        top_x2 = rect_x0 + spacing_back + box_w + spacing_between + 330 # left top box 2
+
+        # Boxes on bottom side near rear
+        bottom_y = rect_y1 - 10  # below rectangle bottom edge
+        bottom_x1 = top_x1  # same x as top_x1
+        bottom_x2 = top_x2  # same x as top_x2
+
+        # Box centered vertically on rear edge (between top and bottom boxes)
+        center_x = rect_x0 + spacing_back
+        center_y = (rect_y0 + rect_y1) // 2 - box_h // 2
+
+        self.box_positions = [
+            (bottom_x2, bottom_y),  # sensor1 in the position of sensor4 (bottom right)
+            (bottom_x1, bottom_y),  # sensor2 in the position of sensor3 (bottom left)
+            (center_x, center_y),   # sensor3 in the position of sensor5 (centered on rear edge)
+            (top_x1, top_y),        # sensor4 in the position of sensor1 (top left)
+            (top_x2, top_y)         # sensor5 in the position of sensor2 (top right)
+        ]
+
+        self.boxes = []
+        for (x, y) in self.box_positions:
+            box = self.canvas.create_rectangle(x, y, x + box_w, y + box_h, fill="white", outline="black", width=2)
+            self.boxes.append(box)
+
+        self.sensor_labels = {}
+        label_font = ("Arial", 14, "bold")
+        for i, (x, y) in enumerate(self.box_positions, start=1):
+            label_x = x + box_w // 2
+            label_y = y + box_h + 20
+            label = self.canvas.create_text(label_x, label_y, text=f"Sensor {i}: -- cm", fill="white", font=label_font)
+            self.sensor_labels[f"sensor{i}"] = label
+
+        self.back_button = create_button(self, "", 30, 500, 160, 60,
+                                         rgb_to_hex(135, 255, 94),
+                                         lambda: controller.show_frame("HomePage"))
+
         self.update_language()
         self.update_colors(controller.get_bg_color(), controller.get_fg_color())
 
+        threading.Thread(target=self.update_sensor_display_loop, daemon=True).start()
+
     def update_language(self):
         lang = self.controller.language.get()
-        self.label.config(text=translations[lang]["sensors_page"])
         self.back_button.config(text=translations[lang]["back"])
 
     def update_colors(self, bg, fg):
-        self.configure(bg=bg)
-        self.label.config(bg=bg, fg=fg)
+        self.configure(bg="#121212")
+        self.canvas.config(bg="#121212")
         self.back_button.config(bg=lighten_color(rgb_to_hex(135, 255, 94), 0.3), fg="black")
+
+    def update_sensor_display_loop(self):
+        while True:
+            distances = getattr(self.controller, "distances", None)
+            if not distances:
+                time.sleep(1)
+                continue
+            for i in range(1, 6):
+                key = f"sensor{i}"
+                dist_value = distances.get(key, None)
+                label_id = self.sensor_labels.get(key)
+                if label_id is not None:
+                    display_text = f"Sensor {i}: {dist_value} cm" if dist_value is not None else f"Sensor {i}: -- cm"
+                    self.canvas.itemconfig(label_id, text=display_text)
+
+                box_id = self.boxes[i - 1]
+                if dist_value is not None and dist_value <= 15:
+                    self.canvas.itemconfig(box_id, fill="red")
+                else:
+                    self.canvas.itemconfig(box_id, fill="white")
+
+            time.sleep(1)
 
 if __name__ == "__main__":
     app = MultiPageApp()
     app.mainloop()
-
